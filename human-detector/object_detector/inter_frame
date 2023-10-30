@@ -1,0 +1,53 @@
+import numpy as np 
+from skimage.transform import pyramid_gaussian
+from imutils.object_detection import non_max_suppression
+import imutils
+from skimage.feature import hog
+import joblib
+import cv2
+from config import *
+from skimage import color
+import matplotlib.pyplot as plt 
+import os 
+import glob
+cap = cv2.VideoCapture("F:/svm+hog/human-detector/video/bend.avi")
+
+ret, frame1 = cap.read()
+gray1 = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
+frame_count = 0
+
+# 创建二值掩码，与视频帧大小相同
+mask = np.zeros_like(gray1)
+
+while cap.isOpened():
+    ret, frame2 = cap.read()
+    if not ret:
+        break
+    gray2 = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
+    
+    # 计算帧间差分，获取运动区域
+    diff = cv2.absdiff(gray1, gray2)
+    thresholded = cv2.threshold(diff, 30, 255, cv2.THRESH_BINARY)[1]
+    contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    frame_count += 1
+    filename = f"F:/svm+hog/human-detector/data/frameframe_{frame_count:04d}.jpg"  # 根据帧计数创建文件名
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        
+        # 绘制矩形框并保存图像
+        cv2.rectangle(frame2, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        
+    cv2.imwrite(filename, frame2)
+    # 在二值掩码上叠加运动部分
+    mask = cv2.add(mask, thresholded)
+    
+    # 显示带有移动部分的原始帧
+    frame_with_motion = cv2.bitwise_and(frame2, frame2, mask=mask)
+    cv2.imshow('Video with Motion', frame_with_motion)
+    
+    if cv2.waitKey(1) & 0xFF == 27:  # 按Esc键退出
+        break
+
+cap.release()
+cv2.destroyAllWindows()
